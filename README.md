@@ -174,6 +174,16 @@ The Supabase anon key is intended for use in a frontend app; never put a Supabas
 
 The tutor API limits requests to 20 per minute per IP. Gemini usage may incur charges under your Google AI Studio account.
 
+### Deploy to Render
+
+1. In Render, choose **New → Blueprint** and connect `Harinisri-Ramesh/LearnxAI`.
+2. Render reads `render.yaml` to build the Vite frontend and start the Express server as one web service.
+3. Enter your `GEMINI_API_KEY` when prompted. Keep it in Render's environment settings; never add it to the repository.
+4. If using Supabase Google sign-in, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the Render service environment before deploying, then trigger a new deploy so Vite includes them in the frontend build. These can be left unset for demo login.
+5. After deployment, add the Render URL to Supabase's allowed redirect URLs if Google sign-in is enabled.
+
+The free Render service may sleep after inactivity, so its first request after a quiet period can take longer.
+
 ### Build for Production
 
 ```bash
