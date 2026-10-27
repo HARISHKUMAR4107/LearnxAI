@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, Bot, User, Sparkles, Info } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { Card, PageHeader, Badge } from '@/components/ui';
-import { QUIZ_QUESTIONS } from '@/data/quizData';
 import type { ChatMessage, PageId } from '@/types';
 
 interface AITutorProps {
@@ -10,12 +9,39 @@ interface AITutorProps {
 }
 
 const SUGGESTED_PROMPTS = [
-  'Explain polymorphism in Java',
-  'What is the difference between ArrayList and LinkedList?',
-  'How do I handle exceptions in Java?',
-  'Explain how garbage collection works',
-  'What are Java Streams?',
+  'How do Java interfaces support polymorphism?',
+  'How should I handle errors in a Spring Boot REST API?',
+  'How do React props and state work?',
+  'How does a REST API connect a frontend to a database?',
+  'What is the difference between supervised and unsupervised learning?',
+  'How do neural networks learn from data?',
 ];
+
+async function generateGeminiResponse(text: string, history: ChatMessage[]): Promise<string> {
+  const response = await fetch('/api/tutor', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: text,
+      history: history
+        .filter((message) => message.id !== 'welcome' && !message.isDemo)
+        .slice(-12)
+        .map((message) => ({
+          role: message.role === 'tutor' ? 'model' : 'user',
+          text: message.text,
+        })),
+    }),
+  });
+  const result: { text?: string; error?: string } = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Unable to get a response from Gemini.');
+  }
+  if (!result.text) {
+    throw new Error('Gemini returned an empty response. Please try asking again.');
+  }
+  return result.text;
+}
 
 function generateDemoResponse(userText: string): string {
   const text = userText.toLowerCase();
@@ -50,7 +76,7 @@ function generateDemoResponse(userText: string): string {
   }
 
   // Generic response
-  return `That\'s a great question about Java! Here\'s a helpful overview:\n\n"${userText}" is an important topic in Java programming. While this is a **demo response** (no AI API is configured), I can share some general guidance:\n\n- Start by understanding the fundamentals before diving into advanced concepts.\n- Practice with hands-on coding exercises.\n- Review the official Java documentation for authoritative references.\n\nTo get real AI-powered answers, an API key for an LLM service (like OpenAI) would need to be configured in the backend.\n\nTry asking about: polymorphism, exceptions, streams, collections, garbage collection, or threading for more detailed demo answers!`;
+  return `I can't provide a reliable subject-specific sample for "${userText}" while Gemini is unavailable. The built-in sample answers cover a few Java topics; please try again when Gemini is available for an answer about any subject.`;
 }
 
 export function AITutor({ onNavigate }: AITutorProps) {
@@ -59,13 +85,15 @@ export function AITutor({ onNavigate }: AITutorProps) {
     {
       id: 'welcome',
       role: 'tutor',
-      text: "Hi! I'm your AI Tutor. I can help you understand Java concepts, explain code patterns, and guide your learning. What would you like to learn about today?",
+      text: "Hi! I'm your AI Tutor. I can help explain concepts across any subject, answer questions, and guide your learning. What would you like to learn about today?",
       timestamp: Date.now(),
-      isDemo: true,
+      isDemo: false,
     },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [failedQuestion, setFailedQuestion] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -76,34 +104,40 @@ export function AITutor({ onNavigate }: AITutorProps) {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const sendMessage = (text: string) => {
-    if (!text.trim()) return;
+  const sendMessage = async (text: string) => {
+    const trimmedText = text.trim();
+    if (!trimmedText || isTyping) return;
 
     const userMsg: ChatMessage = {
       id: `msg_${Date.now()}`,
       role: 'user',
-      text,
+      text: trimmedText,
       timestamp: Date.now(),
       isDemo: false,
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
+    setApiError('');
+    setFailedQuestion('');
     markTutorChatted();
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      const response = generateDemoResponse(text);
-      const tutorMsg: ChatMessage = {
+    try {
+      const response = await generateGeminiResponse(trimmedText, messages);
+      setMessages((prev) => [...prev, {
         id: `msg_${Date.now() + 1}`,
         role: 'tutor',
         text: response,
         timestamp: Date.now(),
-        isDemo: true,
-      };
-      setMessages((prev) => [...prev, tutorMsg]);
+        isDemo: false,
+      }]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Gemini is unavailable. Please try again.';
+      setApiError(message);
+      setFailedQuestion(trimmedText);
+    } finally {
       setIsTyping(false);
-    }, 800 + Math.random() * 700);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -117,9 +151,10 @@ export function AITutor({ onNavigate }: AITutorProps) {
     .slice(0, 3)
     .map((s) => `Explain ${s.concept.toLowerCase()}`);
 
-  const suggestedQuestions = weakConceptSuggestions.length > 0
-    ? [...weakConceptSuggestions, ...SUGGESTED_PROMPTS.slice(0, 2)]
-    : SUGGESTED_PROMPTS;
+  const suggestedQuestions = [
+    ...weakConceptSuggestions.slice(0, 1),
+    ...SUGGESTED_PROMPTS,
+  ];
 
   return (
     <div className="space-y-4">
@@ -129,14 +164,34 @@ export function AITutor({ onNavigate }: AITutorProps) {
         icon={<MessageSquare size={22} />}
       />
 
-      {/* Demo notice */}
-      <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-100">
-        <Info size={16} className="text-amber-600 mt-0.5 shrink-0" />
-        <p className="text-xs text-amber-800">
-          <span className="font-semibold">Demo Mode:</span> Responses are simulated locally — no AI API is configured.
-          The tutor recognizes key Java topics (OOP, exceptions, streams, concurrency, GC, collections) and provides
-          pre-written explanations. To enable real AI responses, connect an LLM API in the backend.
-        </p>
+      <div className={`flex items-start gap-2 p-3 rounded-xl border ${
+        apiError ? 'bg-amber-50 border-amber-100' : 'bg-indigo-50 border-indigo-100'
+      }`}>
+        <Info size={16} className={`mt-0.5 shrink-0 ${apiError ? 'text-amber-600' : 'text-indigo-600'}`} />
+        <div className={`text-xs ${apiError ? 'text-amber-800' : 'text-indigo-800'}`}>
+          <p role={apiError ? 'alert' : undefined}>
+          {apiError || 'Powered by Gemini.'}
+          </p>
+          {apiError && failedQuestion && (
+            <button
+              type="button"
+              onClick={() => {
+                setMessages((prev) => [...prev, {
+                  id: `demo_${Date.now()}`,
+                  role: 'tutor',
+                  text: generateDemoResponse(failedQuestion),
+                  timestamp: Date.now(),
+                  isDemo: true,
+                }]);
+                setApiError('');
+                setFailedQuestion('');
+              }}
+              className="mt-2 font-semibold underline"
+            >
+              Show a sample answer instead
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Chat container */}
@@ -219,12 +274,13 @@ export function AITutor({ onNavigate }: AITutorProps) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about any Java concept…"
+              placeholder="Ask Gemini"
+              maxLength={4000}
               className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
             />
             <button
               type="submit"
-              disabled={!input.trim()}
+              disabled={!input.trim() || isTyping}
               className="px-4 py-2.5 rounded-xl text-white font-semibold bg-gradient-to-r from-indigo-600 to-cyan-500 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
             >
               <Send size={18} />

@@ -6,6 +6,8 @@ export type PageId =
   | 'roadmaps'
   | 'wallet';
 
+export type AssessmentTrack = 'java-dev' | 'fullstack' | 'aiml';
+
 export interface QuizQuestion {
   id: string;
   concept: string;
@@ -60,7 +62,7 @@ export interface RoadmapPhase {
 }
 
 export interface CareerRoadmap {
-  id: string;
+  id: AssessmentTrack;
   title: string;
   description: string;
   icon: string;

@@ -20,10 +20,20 @@ const NAV_ITEMS: { id: PageId; label: string; icon: typeof LayoutDashboard }[] =
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   const { user, logout, totalXP, level } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
 
   const handleNavigate = (page: PageId) => {
     onNavigate(page);
     setMobileOpen(false);
+  };
+
+  const handleLogout = async () => {
+    setLogoutError('');
+    try {
+      await logout();
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : 'Unable to sign out. Please try again.');
+    }
   };
 
   return (
@@ -113,8 +123,9 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
 
         {/* Logout */}
         <div className="p-3 border-t border-gray-100">
+          {logoutError && <p role="alert" className="mb-2 text-xs text-red-600">{logoutError}</p>}
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all"
           >
             <LogOut size={18} className="text-gray-400" />

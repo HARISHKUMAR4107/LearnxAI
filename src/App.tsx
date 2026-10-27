@@ -8,11 +8,12 @@ import { Recommendations } from '@/pages/Recommendations';
 import { AITutor } from '@/pages/AITutor';
 import { Roadmaps } from '@/pages/Roadmaps';
 import { SkillWallet } from '@/pages/SkillWallet';
-import type { PageId } from '@/types';
+import type { AssessmentTrack, PageId } from '@/types';
 
 function AppContent() {
   const { user } = useApp();
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
+  const [assessmentTrack, setAssessmentTrack] = useState<AssessmentTrack>('java-dev');
 
   if (!user) {
     return <LandingPage onNavigate={setCurrentPage} />;
@@ -23,10 +24,17 @@ function AppContent() {
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
       <main className="lg:ml-72 p-4 lg:p-8 max-w-7xl mx-auto">
         {currentPage === 'dashboard' && <Dashboard onNavigate={setCurrentPage} />}
-        {currentPage === 'assessment' && <Assessment onNavigate={setCurrentPage} />}
+        {currentPage === 'assessment' && <Assessment onNavigate={setCurrentPage} track={assessmentTrack} />}
         {currentPage === 'recommendations' && <Recommendations onNavigate={setCurrentPage} />}
         {currentPage === 'tutor' && <AITutor onNavigate={setCurrentPage} />}
-        {currentPage === 'roadmaps' && <Roadmaps onNavigate={setCurrentPage} />}
+        {currentPage === 'roadmaps' && (
+          <Roadmaps
+            onStartAssessment={(track) => {
+              setAssessmentTrack(track);
+              setCurrentPage('assessment');
+            }}
+          />
+        )}
         {currentPage === 'wallet' && <SkillWallet onNavigate={setCurrentPage} />}
       </main>
     </div>

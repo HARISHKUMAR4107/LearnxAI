@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { FileQuestion, CheckCircle2, XCircle, ArrowRight, RotateCcw, Trophy, AlertTriangle, Lightbulb } from 'lucide-react';
-import { QUIZ_QUESTIONS } from '@/data/quizData';
+import { ASSESSMENTS } from '@/data/quizTracks';
 import { useApp } from '@/context/AppContext';
 import { Card, Badge, PageHeader, ProgressBar } from '@/components/ui';
-import type { PageId, QuizResult, QuizAttempt } from '@/types';
+import type { AssessmentTrack, PageId, QuizResult, QuizAttempt } from '@/types';
 
 interface AssessmentProps {
   onNavigate: (page: PageId) => void;
+  track: AssessmentTrack;
 }
 
-export function Assessment({ onNavigate }: AssessmentProps) {
+export function Assessment({ onNavigate, track }: AssessmentProps) {
   const { addAttempt, updateSkillProgress } = useApp();
+  const { title, description, questions } = ASSESSMENTS[track];
   const [stage, setStage] = useState<'intro' | 'quiz' | 'results'>('intro');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -30,11 +32,11 @@ export function Assessment({ onNavigate }: AssessmentProps) {
     if (showFeedback) return;
     setSelectedAnswer(index);
     setShowFeedback(true);
-    setAnswers((prev) => ({ ...prev, [QUIZ_QUESTIONS[currentIndex].id]: index }));
+    setAnswers((prev) => ({ ...prev, [questions[currentIndex].id]: index }));
   };
 
   const nextQuestion = () => {
-    if (currentIndex < QUIZ_QUESTIONS.length - 1) {
+    if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setSelectedAnswer(null);
       setShowFeedback(false);
@@ -44,7 +46,7 @@ export function Assessment({ onNavigate }: AssessmentProps) {
   };
 
   const finishQuiz = () => {
-    const results: QuizResult[] = QUIZ_QUESTIONS.map((q) => {
+    const results: QuizResult[] = questions.map((q) => {
       const selected = answers[q.id];
       return {
         questionId: q.id,
@@ -56,14 +58,14 @@ export function Assessment({ onNavigate }: AssessmentProps) {
     });
 
     const correctCount = results.filter((r) => r.correct).length;
-    const score = Math.round((correctCount / QUIZ_QUESTIONS.length) * 100);
+    const score = Math.round((correctCount / questions.length) * 100);
     const weakConcepts = results.filter((r) => !r.correct).map((r) => r.concept);
     const uniqueWeak = [...new Set(weakConcepts)];
 
     const newAttempt: QuizAttempt = {
       id: `attempt_${Date.now()}`,
       date: Date.now(),
-      totalQuestions: QUIZ_QUESTIONS.length,
+      totalQuestions: questions.length,
       correctAnswers: correctCount,
       score,
       results,
@@ -90,25 +92,26 @@ export function Assessment({ onNavigate }: AssessmentProps) {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Java Skill Assessment"
-          subtitle="Test your Java knowledge across 7 key categories"
+          title={title}
+          subtitle={`Test your knowledge across ${new Set(questions.map((question) => question.category)).size} categories`}
           icon={<FileQuestion size={22} />}
         />
         <div className="grid lg:grid-cols-3 gap-6">
           <Card className="p-6 lg:col-span-2">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">About this assessment</h3>
             <p className="text-sm text-gray-500 leading-relaxed">
-              This quiz covers {QUIZ_QUESTIONS.length} questions across fundamentals, OOP, collections, exceptions,
-              concurrency, modern Java, and JVM internals. After completion, you'll receive an automatic score,
+              {description} It contains {questions.length} questions. After completion, you'll receive an automatic score,
               detailed gap analysis, and personalized learning recommendations.
             </p>
             <div className="grid grid-cols-3 gap-4 mt-6">
               <div className="text-center p-4 bg-indigo-50 rounded-xl">
-                <p className="text-2xl font-bold text-indigo-600">{QUIZ_QUESTIONS.length}</p>
+                <p className="text-2xl font-bold text-indigo-600">{questions.length}</p>
                 <p className="text-xs text-gray-500 mt-1">Questions</p>
               </div>
               <div className="text-center p-4 bg-cyan-50 rounded-xl">
-                <p className="text-2xl font-bold text-cyan-600">7</p>
+                <p className="text-2xl font-bold text-cyan-600">
+                  {new Set(questions.map((question) => question.category)).size}
+                </p>
                 <p className="text-xs text-gray-500 mt-1">Categories</p>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-xl">
@@ -127,16 +130,8 @@ export function Assessment({ onNavigate }: AssessmentProps) {
           <Card className="p-6">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Categories covered</h3>
             <div className="space-y-2">
-              {[
-                'Fundamentals',
-                'Object-Oriented Programming',
-                'Collections',
-                'Exceptions',
-                'Concurrency',
-                'Modern Java',
-                'JVM Internals',
-              ].map((cat, i) => {
-                const count = QUIZ_QUESTIONS.filter((q) => q.category === cat).length;
+              {[...new Set(questions.map((question) => question.category))].map((cat) => {
+                const count = questions.filter((q) => q.category === cat).length;
                 return (
                   <div key={cat} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50">
                     <span className="text-sm text-gray-700">{cat}</span>
@@ -153,15 +148,15 @@ export function Assessment({ onNavigate }: AssessmentProps) {
 
   // QUIZ STAGE
   if (stage === 'quiz') {
-    const q = QUIZ_QUESTIONS[currentIndex];
-    const progress = ((currentIndex + 1) / QUIZ_QUESTIONS.length) * 100;
+    const q = questions[currentIndex];
+    const progress = ((currentIndex + 1) / questions.length) * 100;
     const isCorrect = selectedAnswer === q.correctIndex;
 
     return (
       <div className="space-y-6">
         <PageHeader
           title="Assessment in Progress"
-          subtitle={`Question ${currentIndex + 1} of ${QUIZ_QUESTIONS.length}`}
+          subtitle={`Question ${currentIndex + 1} of ${questions.length}`}
           icon={<FileQuestion size={22} />}
         />
 
@@ -236,7 +231,7 @@ export function Assessment({ onNavigate }: AssessmentProps) {
               onClick={nextQuestion}
               className="mt-5 w-full py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-indigo-600 to-cyan-500 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
             >
-              {currentIndex < QUIZ_QUESTIONS.length - 1 ? 'Next Question' : 'See Results'} <ArrowRight size={18} />
+              {currentIndex < questions.length - 1 ? 'Next Question' : 'See Results'} <ArrowRight size={18} />
             </button>
           )}
         </Card>
@@ -246,8 +241,6 @@ export function Assessment({ onNavigate }: AssessmentProps) {
 
   // RESULTS STAGE
   if (stage === 'results' && attempt) {
-    const wrongResults = attempt.results.filter((r) => !r.correct);
-
     return (
       <div className="space-y-6">
         <PageHeader
@@ -302,7 +295,7 @@ export function Assessment({ onNavigate }: AssessmentProps) {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-800">{concept}</p>
                       <p className="text-xs text-gray-400">
-                        {QUIZ_QUESTIONS.find((q) => q.concept === concept)?.category}
+                        {questions.find((q) => q.concept === concept)?.category}
                       </p>
                     </div>
                     <Badge color="red">Gap</Badge>
@@ -328,7 +321,7 @@ export function Assessment({ onNavigate }: AssessmentProps) {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-800">{concept}</p>
                       <p className="text-xs text-gray-400">
-                        {QUIZ_QUESTIONS.find((q) => q.concept === concept)?.category}
+                        {questions.find((q) => q.concept === concept)?.category}
                       </p>
                     </div>
                     <Badge color="green">Mastered</Badge>
@@ -344,7 +337,7 @@ export function Assessment({ onNavigate }: AssessmentProps) {
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Question Review</h3>
           <div className="space-y-3">
             {attempt.results.map((r, i) => {
-              const q = QUIZ_QUESTIONS.find((qq) => qq.id === r.questionId)!;
+              const q = questions.find((qq) => qq.id === r.questionId)!;
               return (
                 <div key={r.questionId} className={`p-4 rounded-xl border ${r.correct ? 'border-green-100 bg-green-50/50' : 'border-red-100 bg-red-50/50'}`}>
                   <div className="flex items-start gap-2">

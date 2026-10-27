@@ -3,10 +3,10 @@ import { Map, Coffee, Layers, BrainCircuit, Clock, BarChart, DollarSign, CheckCi
 import { CAREER_ROADMAPS } from '@/data/content';
 import { useApp } from '@/context/AppContext';
 import { Card, Badge, PageHeader } from '@/components/ui';
-import type { CareerRoadmap, PageId } from '@/types';
+import type { AssessmentTrack, CareerRoadmap } from '@/types';
 
 interface RoadmapsProps {
-  onNavigate?: (page: PageId) => void;
+  onStartAssessment: (track: AssessmentTrack) => void;
 }
 
 const ICON_MAP: Record<string, typeof Coffee> = {
@@ -21,7 +21,7 @@ const DIFFICULTY_COLORS: Record<string, 'green' | 'amber' | 'red'> = {
   Advanced: 'red',
 };
 
-export function Roadmaps({ onNavigate }: RoadmapsProps) {
+export function Roadmaps({ onStartAssessment }: RoadmapsProps) {
   const { markRoadmapViewed, viewedRoadmaps } = useApp();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
@@ -223,14 +223,12 @@ export function Roadmaps({ onNavigate }: RoadmapsProps) {
         >
           ← All Roadmaps
         </button>
-        {onNavigate && (
-          <button
-            onClick={() => onNavigate('assessment')}
-            className="py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-indigo-600 to-cyan-500 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-          >
-            Test Your Skills <ArrowRight size={18} />
-          </button>
-        )}
+        <button
+          onClick={() => onStartAssessment(selectedRoadmap.id)}
+          className="py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-indigo-600 to-cyan-500 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+        >
+          Test Your Skills <ArrowRight size={18} />
+        </button>
       </div>
     </div>
   );

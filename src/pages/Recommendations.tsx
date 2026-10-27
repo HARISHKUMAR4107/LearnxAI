@@ -1,7 +1,7 @@
-import { Lightbulb, AlertTriangle, TrendingUp, ArrowRight, Video, FileText, Dumbbell, BookOpen, Clock, BarChart } from 'lucide-react';
+import { Lightbulb, AlertTriangle, TrendingUp, ArrowRight, Video, FileText, Dumbbell, BookOpen, Clock, BarChart, ExternalLink } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { LEARNING_RESOURCES } from '@/data/content';
-import { QUIZ_QUESTIONS } from '@/data/quizData';
+import { CONCEPT_LEARNING_LINKS, LEARNING_RESOURCES } from '@/data/content';
+import { ALL_ASSESSMENT_QUESTIONS } from '@/data/quizTracks';
 import { Card, Badge, PageHeader, ProgressBar } from '@/components/ui';
 import type { PageId, LearningResource } from '@/types';
 
@@ -34,11 +34,13 @@ export function Recommendations({ onNavigate }: RecommendationsProps) {
     .filter((s) => s.mastery >= 60 && s.mastery < 80)
     .sort((a, b) => a.mastery - b.mastery);
 
-  const untestedConcepts = [...new Set(QUIZ_QUESTIONS.map((q) => q.concept))]
+  const untestedConcepts = [...new Set(ALL_ASSESSMENT_QUESTIONS.map((q) => q.concept))]
     .filter((concept) => !skillProgress.some((s) => s.concept === concept));
 
   const getResourcesForConcept = (concept: string): LearningResource[] =>
-    LEARNING_RESOURCES.filter((r) => r.concept === concept);
+    LEARNING_RESOURCES.filter((r) => r.concept === concept && r.url !== '#');
+
+  const getLearningLink = (concept: string) => CONCEPT_LEARNING_LINKS[concept];
 
   // Priority order: weak → medium → untested
   const priorityConcepts = [
@@ -135,6 +137,16 @@ export function Recommendations({ onNavigate }: RecommendationsProps) {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-800">{concept.concept}</span>
+                      {getLearningLink(concept.concept) && (
+                        <a
+                          href={getLearningLink(concept.concept)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                        >
+                          Learn online <ExternalLink size={12} />
+                        </a>
+                      )}
                       {concept.priority === 'high' ? (
                         <Badge color="red">High Priority</Badge>
                       ) : (
@@ -176,7 +188,7 @@ export function Recommendations({ onNavigate }: RecommendationsProps) {
                     </div>
                   ) : (
                     <div className="p-3 rounded-xl bg-gray-50 text-sm text-gray-400">
-                      Ask the AI Tutor for help with this concept — no specific resources linked yet.
+                      Use the learning guide above, or ask the AI Tutor for more help with this concept.
                     </div>
                   )}
                 </div>
@@ -200,6 +212,17 @@ export function Recommendations({ onNavigate }: RecommendationsProps) {
               <div key={concept} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-100">
                 <span className="text-sm text-gray-700">{concept}</span>
                 <Badge color="indigo">New</Badge>
+                {getLearningLink(concept) && (
+                  <a
+                    href={getLearningLink(concept)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Learn about ${concept} online`}
+                    className="text-indigo-600 hover:text-indigo-800"
+                  >
+                    <ExternalLink size={14} />
+                  </a>
+                )}
               </div>
             ))}
           </div>

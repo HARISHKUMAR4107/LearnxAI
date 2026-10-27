@@ -3,11 +3,12 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { QuizAttempt, Achievement, SkillProgress, UserProfile } from '@/types';
 import { ACHIEVEMENTS } from '@/data/content';
 import { QUIZ_QUESTIONS } from '@/data/quizData';
+import { supabase } from '@/lib/supabase';
 
 interface AppContextValue {
   user: UserProfile | null;
   login: (name: string, email: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   attempts: QuizAttempt[];
   addAttempt: (attempt: QuizAttempt) => void;
   achievements: Achievement[];
@@ -32,6 +33,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [viewedRoadmaps, setViewedRoadmaps] = useLocalStorage<string[]>('learnxai_roadmaps_viewed', []);
   const [hasChattedWithTutor, setHasChattedWithTutor] = useLocalStorage<boolean>('learnxai_tutor_chatted', false);
 
+  useEffect(() => {
+    if (!supabase) return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        return;
+      }
+
+      if (!session?.user || (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION' && event !== 'USER_UPDATED')) {
+        return;
+      }
+
+      const metadata = session.user.user_metadata;
+      const email = session.user.email ?? '';
+      const name =
+        (typeof metadata.full_name === 'string' && metadata.full_name) ||
+        (typeof metadata.name === 'string' && metadata.name) ||
+        email.split('@')[0] ||
+        'Learner';
+
+      setUser((previous) => ({
+        name,
+        email,
+        avatar: name.charAt(0).toUpperCase() + (name.split(' ')[1]?.charAt(0).toUpperCase() || ''),
+        joinedDate: previous?.joinedDate ?? Date.now(),
+        streak: previous?.streak ?? 1,
+      }));
+    });
+
+    return () => subscription.unsubscribe();
+  }, [setUser]);
+
   const login = (name: string, email: string) => {
     setUser({
       name,
@@ -42,7 +76,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      return;
+    }
+
     setUser(null);
   };
 
